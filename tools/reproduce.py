@@ -85,6 +85,8 @@ def main():
             "--output", output / "analysis"])
         run("plots", [plot_python, source / "tools/experiments/plot.py", output / "analysis",
             "--output", output / "figures"])
+        run("architecture", [plot_python, source / "tools/experiments/architecture.py", "--trace", trace,
+            "--rtl", rtl, "--output", output / "architecture"])
         record["status"] = "passed"
     except Exception as exc:
         record.update(status="failed", error=str(exc))

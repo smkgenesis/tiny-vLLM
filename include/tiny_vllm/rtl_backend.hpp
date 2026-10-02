@@ -6,6 +6,8 @@
 namespace tiny_vllm {
 struct RtlConfig {
     U64 fifo_depth{2}, service_cycles{3}, initial_request_pause_cycles{};
+    std::string architecture{"single"};
+    U64 trace_waveform{};
 };
 RtlConfig load_rtl_config(const std::string& path);
 std::string resolved_rtl_yaml(const RtlConfig&);

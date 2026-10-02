@@ -1,0 +1,5 @@
+architecture: dual-rw
+fifo_depth: 8
+service_cycles: 7
+initial_request_pause_cycles: 0
+trace_waveform: 1

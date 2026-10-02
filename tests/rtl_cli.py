@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import shutil
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from check_rtl_run import audit, rows
@@ -15,13 +16,15 @@ def exercise(rtl, trace, example, root):
     checker = Path(__file__).resolve().parents[1] / "tools" / "check_rtl_run.py"
     text = example.read_text(encoding="utf-8")
 
-    def invoke(executable, config, name, settings=None, fault=None, code=0):
+    def invoke(executable, config, name, settings=None, fault=None, code=0, architecture=None):
         destination = root / name
         command = [str(executable), "--config", str(config), "--output", str(destination)]
         if settings:
             command += ["--rtl-config", str(settings)]
         if fault:
             command += ["--inject-fault", fault]
+        if architecture:
+            command += ["--rtl", architecture]
         process = subprocess.run(command, text=True, capture_output=True, timeout=20)
         entry = dict(command=command, expected_exit=code, exit=process.returncode,
                      stdout=process.stdout, stderr=process.stderr)
@@ -30,9 +33,9 @@ def exercise(rtl, trace, example, root):
         assert process.returncode == code, entry
         return destination
 
-    def settings(name, depth=2, service=3, pause=0):
+    def settings(name, depth=2, service=3, pause=0, architecture="single", waveform=0):
         path = root / f"{name}-rtl.yaml"
-        path.write_text(f"fifo_depth: {depth}\nservice_cycles: {service}\ninitial_request_pause_cycles: {pause}\n", encoding="utf-8")
+        path.write_text(f"fifo_depth: {depth}\nservice_cycles: {service}\ninitial_request_pause_cycles: {pause}\narchitecture: {architecture}\ntrace_waveform: {waveform}\n", encoding="utf-8")
         return path
 
     def workload(name, contents):
@@ -124,6 +127,38 @@ def exercise(rtl, trace, example, root):
     invoke(rtl, example, "invalid-fault", defaults, fault="unknown", code=2)
     replay = invoke(rtl, root / "mixed-rtl" / "resolved_config.yaml", "resolved-replay", root / "mixed-rtl" / "resolved_rtl_config.yaml")
     checked["replay"] = audit(replay, root / "mixed-trace")
+    dual = settings("dual", depth=4, service=5, architecture="dual-rw", waveform=1)
+    result = invoke(rtl, multilayer, "dual", dual)
+    checked["dual"] = audit(result, root / "multilayer-trace")
+    assert (result / "rtl.vcd").stat().st_size > 100
+    overridden = invoke(rtl, multilayer, "dual-cli-override", defaults, architecture="dual-rw")
+    checked["dual-cli-override"] = audit(overridden, root / "multilayer-trace")
+    replay = invoke(rtl, result / "resolved_config.yaml", "dual-replay", result / "resolved_rtl_config.yaml")
+    checked["dual-replay"] = audit(replay, root / "multilayer-trace")
+    assert (result / "rtl_cycles.csv").read_bytes() == (replay / "rtl_cycles.csv").read_bytes()
+    for fault, status in (("address", "protocol_error"), ("duplicate-completion", "protocol_error"), ("drop-completion", "timeout")):
+        failed = invoke(rtl, short, "dual-fault-" + fault, dual, fault, 3)
+        s = rows(failed / "summary.csv")[0]
+        assert s["status"] == status and int(s["final_outstanding"]) > 0
+    for name, setting in (("odd-dual", settings("odd-dual", depth=3, architecture="dual-rw")),
+                          ("unknown-architecture", settings("unknown-architecture", architecture="unknown")),
+                          ("invalid-waveform", settings("invalid-waveform", waveform=2))):
+        invoke(rtl, example, name, setting, code=2)
+    # The metric auditor must reject falsified engine occupancy, even if the
+    # frontend transactions and all completion IDs remain valid.
+    tampered = root / "dual-corrupt-busy"
+    shutil.copytree(result, tampered)
+    wires = rows(tampered / "rtl_cycles.csv")
+    next(r for r in wires if r["read_busy"] == "1")["read_busy"] = "0"
+    with (tampered / "rtl_cycles.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=wires[0].keys())
+        writer.writeheader(); writer.writerows(wires)
+    try:
+        audit(tampered)
+    except AssertionError as exc:
+        assert "Engine busy" in str(exc)
+    else:
+        raise AssertionError("Corrupted busy wire accepted")
     (root / "checks.json").write_text(json.dumps({"status": "passed", "wire_audits": checked, "serial_latency": serial_results,
         "faults_detected": ["address", "duplicate-completion", "drop-completion"],
         "checker_negative_control": "copied premature release detected"}, indent=2), encoding="utf-8")

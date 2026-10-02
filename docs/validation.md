@@ -12,7 +12,7 @@
 | Negative control | 관측값 변조·완료 전달 누락, 복사한 기록의 조기 반환·RDATA 변조 |
 | 재현 | 새 build/output, resolved 입력 replay, 저장된 wire를 별도 Python으로 검사 |
 
-현재 검사에는 기능을 확인하는 22개 CTest가 있다. 이전 26개에서 도구 설치 확인용 C++ smoke 1개와 전용 clock/reset probe 3개를 제외했다. 실제 core·예제 RTL·외부 AXI의 검사는 유지한다. Trace만 빌드하면 14개다.
+현재 기능 검사는 24개 CTest다(Trace만 빌드하면 14개). Dual의 방향별 진행·응답 정지 중 arbitration 안정성·FIFO 순서·pointer wrap·drain을 포함한다. CLI에서는 dual의 다층 의존성·세 fault·잘못된 설정·CLI 선택·resolved replay·VCD 생성을 검사한다. 복사한 busy 신호를 변조하면 별도 wire 검사가 거부해야 한다.
 
 공통 generator와 trace/RTL 결과의 일치는 전송 일관성 확인이다. Generator의 정답은 별도의 작은 주소 기준·byte 식으로 확인한다. 모든 입력에 대한 형식 검증이나 AXI4 전체 적합성 인증은 아니다.
 
@@ -41,7 +41,7 @@ python3 tools/reproduce.py \
   --plot-python "$HOME/.cache/tiny-vllm/plot-env/bin/python" --jobs 4
 ```
 
-Build/output은 새 경로여야 한다. Trace 및 RTL/AXI 빌드, CTest, protocol/AXI 검사, 실험, 분석, 그림을 실행한다. `reproduction.json`은 명령·exit·전체 상태, `logs/`는 명령 출력, `protocol/`과 `external-axi/`는 정상·실패 원시 자료를 담는다. `experiments/`, `analysis/`, `figures/`에 실험 결과를 보존한다. 실패 시 nonzero exit로 종료한다.
+Build/output은 새 경로여야 한다. Trace 및 RTL/AXI 빌드, CTest, protocol/AXI 검사, 기존 실험, 분석, 그림과 single/dual 연구를 실행한다. `reproduction.json`은 명령·exit·전체 상태, `logs/`는 명령 출력, `protocol/`과 `external-axi/`는 정상·실패 원시 자료를 담는다. 기존 실험은 `experiments/`, `analysis/`, `figures/`, 아키텍처 연구의 11쌍·33회 실행과 표·그림·VCD는 `architecture/`에 남긴다. 실패 시 nonzero exit로 종료한다.
 
 ## 실험과 패키징
 

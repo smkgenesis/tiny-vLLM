@@ -1,0 +1,12 @@
+case,group,concurrency,max_outstanding,single_span,dual_span,span_ratio,dual_overlap_ratio,dual_overlap_cycles,transactions
+single-request-c1,single-request,1,16,493,493,1.0,0.0,0,66
+homogeneous-c1,homogeneous,1,16,3951,3951,1.0,0.0,0,528
+homogeneous-c2,homogeneous,2,16,3767,3627,1.038599393438103,0.03937007874015748,140,528
+homogeneous-c4,homogeneous,4,16,3731,3465,1.0767676767676768,0.07755102040816327,266,528
+homogeneous-c8,homogeneous,8,16,3713,3489,1.0642017770134709,0.06451612903225806,224,528
+mixed-c1,mixed,1,16,4399,4399,1.0,0.0,0,584
+mixed-c2,mixed,2,16,4231,4066,1.0405804230201672,0.04205964822839663,165,584
+mixed-c4,mixed,4,16,4169,3849,1.0831384775266304,0.08492569002123142,320,584
+mixed-c8,mixed,8,16,4119,3756,1.0966453674121406,0.0974496644295302,363,584
+homogeneous-c4-serial-driver,homogeneous,4,1,4751,4751,1.0,0.0,0,528
+mixed-c4-serial-driver,mixed,4,1,5255,5255,1.0,0.0,0,584

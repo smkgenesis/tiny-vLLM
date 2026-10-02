@@ -1,0 +1,26 @@
+# Mixed study workload, concurrency 4. Matches plan.py's mixed-c4.
+model:
+  num_layers: 1
+  kv_heads: 1
+  head_dim: 8
+  dtype_bytes: 2
+scheduler:
+  max_tokens_per_step: 32
+  prefill_chunk_tokens: 4
+  max_active_requests: 4
+kv_cache:
+  block_tokens: 4
+  pool_blocks: 64
+driver:
+  transaction_bytes: 64
+  max_outstanding: 16
+  max_backend_cycles: 100000
+requests:
+  - {id: R0, arrival_step: 0, prompt_tokens: 24, output_tokens: 2}
+  - {id: R1, arrival_step: 0, prompt_tokens: 2, output_tokens: 16}
+  - {id: R2, arrival_step: 0, prompt_tokens: 24, output_tokens: 2}
+  - {id: R3, arrival_step: 0, prompt_tokens: 2, output_tokens: 16}
+  - {id: R4, arrival_step: 0, prompt_tokens: 24, output_tokens: 2}
+  - {id: R5, arrival_step: 0, prompt_tokens: 2, output_tokens: 16}
+  - {id: R6, arrival_step: 0, prompt_tokens: 24, output_tokens: 2}
+  - {id: R7, arrival_step: 0, prompt_tokens: 2, output_tokens: 16}

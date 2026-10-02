@@ -65,6 +65,16 @@ WSTRB는 해당 byte만 선택한다. 검증 패턴은 `(id*131 + address*17 + (
 
 [`kv_service.sv`](../rtl/kv_service.sv)는 descriptor FIFO와 일정 처리 지연의 단일 engine이다. 실제 데이터 저장·DRAM timing은 없다. FIFO 깊이는 1..64의 runtime 수락 제한이며 물리 배열 면적 변경이 아니다. `fifo_depth`, `service_cycles`, `initial_request_pause_cycles`를 설정한다.
 
+[`kv_service_dual.sv`](../rtl/kv_service_dual.sv)는 같은 engine을 read/write별로 하나씩 사용한다. `architecture: single|dual-rw` 또는 CLI의 `--rtl`로 선택하며 CLI가 우선한다. `dual-rw`의 `fifo_depth`는 **전체 대기 용량**으로 짝수 2..64, 각 방향에 절반을 준다. 실행 중인 descriptor는 이 용량에 포함하지 않는다. Runtime 수용량을 맞출 뿐 물리 배열(단일 64, dual 64×2)·면적·총 자원은 같지 않다.
+
+두 대상은 같은 C++ adapter의 staging 한 칸, 입력 한 개/cycle, 완료 한 개/cycle을 공유한다. Dual의 완료 arbitration은 round-robin이며 정지 중 선택을 고정한다. 방향별 FIFO 순서는 유지하고 방향 간 완료 순서 변경은 허용한다. Queue가 가득 차면 같은 edge에 dequeue할 수 있어도 입력을 거절한다. 한 방향에서 막힌 staging은 반대 방향 요청도 지연시킬 수 있다. Dual 엔진은 이 frontend head-of-line blocking을 제거하지 않는다.
+
+Edge S에서 시작한 descriptor는 가장 빨라도 S+`service_cycles`에 완료한다. 응답 경합/정지는 engine을 계속 점유한다. `read_busy`/`write_busy`는 이 대기까지 포함하며 `read_completion_wait`/`write_completion_wait`로 구분한다. Dual에서 동시에 두 service start가 가능하므로 분석은 방향별 start/ID를 쓴다. 기존 단일 `service_id`는 동시 시작 시 read 우선 요약이다.
+
+`rtl_cycles.csv`는 edge 직전 값을 기록한다. Idle/read-only/write-only/both 네 상태 합은 reset 제외 전체 edge 수다. Overlap ratio는 `both / (read-only + write-only + both)`, 방향별 utilization은 `direction-busy / all edges`다. 방향별 FIFO 평균·최대는 edge 직전 대기 descriptor 수다. Request stall, driver staging wait, outstanding-limit wait는 서로 겹칠 수 있어 합을 latency로 해석하지 않는다.
+
+`trace_waveform: 1`이면 실제 Verilator `rtl.vcd`를 남긴다(기본 0). Reset은 VCD time 1, workload edge N은 VCD time `2N+1`의 rising edge다. Time 단위는 testbench tick이며 소자 주파수 추정이 아니다. CSV와 동일한 실행의 파형으로, [연구 그림](kcs-study.md)은 wire start/completion 구간을 표시한다.
+
 공통 출력은 `input.yaml`, `resolved_config.yaml`, `metadata.yaml`, `summary.csv`, `events.csv`, `transactions.csv`, `driver_waits.csv`다. 같은 transaction ID의 generated/accepted/completed 행을 중복 합산하지 않는다. Byte 합계는 completed 행 기준이다. 이벤트의 token/output 수는 요청별, 점유량·outstanding은 전체 상태다.
 
 AXI의 `axi_cycles.csv`는 edge 직전 AW/W/B/AR/R 신호를 기록한다. `axi_summary.csv`는 descriptor, burst, beat, byte와 B/R stall을 구분한다. 예제 RTL은 `rtl_cycles.csv`, `rtl_handshakes.csv`, `rtl_summary.csv`를 사용한다. Frontend acceptance와 실제 RTL handshake 시각은 다를 수 있다.

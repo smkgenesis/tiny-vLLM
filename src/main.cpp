@@ -95,7 +95,11 @@ void finish(const fs::path& directory, const std::string& status, const std::str
     metadata["cycle_semantics"] = "post-reset AXI edges; completion after every B or final R handshake of all sub-bursts";
 #elif defined(TINY_VLLM_RTL)
     metadata["backend"] = "verilator_kv_service";
-    metadata["rtl_model"] = "synthetic descriptor FIFO and serial service; no data payload";
+    if (fs::is_regular_file(directory / "resolved_rtl_config.yaml")) {
+        const auto rtl = YAML::LoadFile((directory / "resolved_rtl_config.yaml").string());
+        metadata["architecture"] = rtl["architecture"].as<std::string>();
+    }
+    metadata["rtl_model"] = "synthetic descriptor FIFO(s) and fixed-latency engine(s); no data payload";
     metadata["test_fault"] = fault;
     metadata["cycle_semantics"] = "post-reset rising edges; frontend accepted at edge boundary N, earliest RTL handshake N+1";
 #else
@@ -132,13 +136,16 @@ int main(int argc, char** argv) {
 #ifdef TINY_VLLM_AXI
     const std::string usage = "Usage: tiny-vllm-axi --config FILE --rtl-config FILE --output NEW_DIRECTORY [--inject-fault read-data|drop-completion]\n";
 #elif defined(TINY_VLLM_RTL)
-    const std::string usage = "Usage: tiny-vllm-rtl --config FILE --rtl-config FILE --output NEW_DIRECTORY [--inject-fault address|drop-completion|duplicate-completion]\n";
+    const std::string usage = "Usage: tiny-vllm-rtl --config FILE --rtl-config FILE --output NEW_DIRECTORY [--rtl single|dual-rw] [--inject-fault address|drop-completion|duplicate-completion]\n";
 #else
     const std::string usage = "Usage: tiny-vllm-trace --config FILE --output NEW_DIRECTORY\n";
 #endif
     if (argc == 2 && std::string_view(argv[1]) == "--help") { std::cout << usage; return 0; }
     fs::path config_path, output_path;
     std::string fault = "none";
+#ifdef TINY_VLLM_RTL
+    std::string architecture;
+#endif
 #ifdef TINY_VLLM_HARDWARE
     fs::path rtl_config_path;
     bool fault_set = false;
@@ -148,6 +155,9 @@ int main(int argc, char** argv) {
         if (i + 1 >= argc) { std::cerr << usage; return 2; }
         if (option == "--config" && config_path.empty()) config_path = argv[++i];
         else if (option == "--output" && output_path.empty()) output_path = argv[++i];
+#ifdef TINY_VLLM_RTL
+        else if (option == "--rtl" && architecture.empty()) architecture = argv[++i];
+#endif
 #ifdef TINY_VLLM_HARDWARE
         else if (option == "--rtl-config" && rtl_config_path.empty()) rtl_config_path = argv[++i];
         else if (option == "--inject-fault" && !fault_set) { fault = argv[++i]; fault_set = true; }
@@ -184,7 +194,10 @@ int main(int argc, char** argv) {
         write_file(output_path / "resolved_config.yaml", resolved_yaml(config));
         sink = std::make_unique<FileSink>(output_path);
 #ifdef TINY_VLLM_HARDWARE
-        const auto rtl_config = load_hardware_config(rtl_config_path.string());
+        auto rtl_config = load_hardware_config(rtl_config_path.string());
+#ifdef TINY_VLLM_RTL
+        if (!architecture.empty()) rtl_config.architecture = architecture;
+#endif
         write_file(output_path / "resolved_rtl_config.yaml", resolved_hardware_yaml(rtl_config));
         backend = std::make_unique<HardwareBackend>(config, rtl_config, output_path, fault);
         run(config, *backend, *sink, stats);

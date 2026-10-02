@@ -58,7 +58,9 @@ if(TINY_VLLM_ENABLE_RTL)
     add_library(tiny-vllm-rtl-backend src/rtl_backend.cpp)
     target_link_libraries(tiny-vllm-rtl-backend PUBLIC tiny-vllm-core)
     verilate(tiny-vllm-rtl-backend SOURCES rtl/kv_service.sv
-        TOP_MODULE kv_service PREFIX Vkv_service VERILATOR_ARGS --Wall)
+        TOP_MODULE kv_service PREFIX Vkv_service TRACE VERILATOR_ARGS --Wall)
+    verilate(tiny-vllm-rtl-backend SOURCES rtl/kv_service_dual.sv rtl/kv_service.sv
+        TOP_MODULE kv_service_dual PREFIX Vkv_service_dual TRACE VERILATOR_ARGS --Wall)
     add_cli(tiny-vllm-rtl tiny-vllm-rtl-backend TINY_VLLM_RTL)
     if(BUILD_TESTING)
         add_executable(tiny-vllm-rtl-tests tests/rtl_service.cpp)

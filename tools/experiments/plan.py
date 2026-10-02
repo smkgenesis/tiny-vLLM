@@ -80,6 +80,46 @@ def build_plan():
     )
 
 
+def build_architecture_plan():
+    """Frozen architectural comparison: total waiting slots, not silicon area, matched."""
+    base = {
+        "model": dict(num_layers=1, kv_heads=1, head_dim=8, dtype_bytes=2),
+        "scheduler": dict(max_tokens_per_step=32, prefill_chunk_tokens=4, max_active_requests=1),
+        "kv_cache": dict(block_tokens=4, pool_blocks=64),
+        "driver": dict(transaction_bytes=64, max_outstanding=16, max_backend_cycles=100000),
+    }
+    cases = []
+    for group, caps in (("single-request", (1,)), ("homogeneous", (1, 2, 4, 8)), ("mixed", (1, 2, 4, 8))):
+        for cap in caps:
+            c = deepcopy(base)
+            c["scheduler"]["max_active_requests"] = cap
+            lengths = [(8, 8)] * (1 if group == "single-request" else 8)
+            if group == "mixed":
+                lengths = [(24, 2), (2, 16)] * 4
+            c["requests"] = [dict(id=f"R{i}", arrival_step=0, prompt_tokens=p, output_tokens=o)
+                             for i, (p, o) in enumerate(lengths)]
+            cases.append(dict(name=f"{group}-c{cap}", group=group, concurrency=cap, workload=c))
+    for group in ("homogeneous", "mixed"):
+        c = deepcopy(next(c for c in cases if c["name"] == f"{group}-c4"))
+        c["name"] += "-serial-driver"
+        c["workload"]["driver"]["max_outstanding"] = 1
+        cases.append(c)
+    for c in cases:
+        req = c["workload"]["requests"]
+        c["expected_write_bytes"] = 32 * sum(r["prompt_tokens"] + r["output_tokens"] - 1 for r in req)
+        c["expected_read_bytes"] = 32 * sum((r["output_tokens"] - 1) * r["prompt_tokens"] +
+                                            r["output_tokens"] * (r["output_tokens"] - 1) // 2 for r in req)
+    return dict(
+        question="When does serving concurrency expose read/write overlap to independent RTL engines?",
+        architectures=["single", "dual-rw"],
+        rtl=dict(fifo_depth=8, service_cycles=7, initial_request_pause_cycles=0),
+        fairness="Same total waiting capacity (single 8; dual 4+4), service per descriptor, one ingress and one completion port. Dual adds an active engine; not equal-area or equal-resource optimization.",
+        prediction="A single request and outstanding=1 controls cannot overlap dependent phases. Multiple requests may expose overlap; homogeneous lockstep, staging HOL, queue partitioning and global barriers may limit or reverse gains. No monotonic speedup prediction.",
+        metrics="Span=last completion minus first request. Busy includes completion wait. Overlap=both-busy/any-busy; utilization=direction-busy/all post-reset edges. FIFO occupancy sampled before each edge. Stall categories may overlap and are not an additive span decomposition.",
+        limitations="Synthetic lengths and fixed-cost descriptors, no numeric inference or measured device performance. Concurrency changes batching/splitting; compare architecture within identical input pairs.",
+        waveform_case="mixed-c4", cases=cases)
+
+
 def yaml_text(config):
     """Write this plan's narrow scalar/list schema, without a Python YAML dependency."""
     import json
