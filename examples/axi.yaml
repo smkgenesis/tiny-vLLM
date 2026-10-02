@@ -1,0 +1,3 @@
+max_burst_beats: 256
+response_pause_period: 0
+response_pause_cycles: 0

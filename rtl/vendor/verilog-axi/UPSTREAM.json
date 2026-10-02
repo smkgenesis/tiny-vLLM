@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/alexforencich/verilog-axi",
+  "commit": "516bd5dadc3365b7f9e225d2af8fe0b8d804fe53",
+  "path": "rtl/axi_ram.v",
+  "sha256": "2eb669f3cd1fd912a74c024df3bea5765a3599eead1a007c63f19b6b185d55c4",
+  "license": "MIT; see COPYING and source header",
+  "modified": false,
+  "maintenance": "Upstream deprecated in favor of fpganinja/taxi; frozen external validation target."
+}
