@@ -1,6 +1,6 @@
 // Synthetic KV transaction service: descriptor FIFO plus one service engine.
 // No data payload/storage or DRAM timing model. Configuration is reset-stable.
-module kv_service (
+module single_engine (
     input logic clk, reset,
     input logic [31:0] fifo_depth, service_cycles,
     input logic [63:0] arena_bytes,

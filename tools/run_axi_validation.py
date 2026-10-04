@@ -45,7 +45,7 @@ def main():
     try:
         normal, paused = args.examples / "axi.yaml", args.examples / "axi-paused.yaml"
         for name in ("small", "mixed", "pressure"):
-            config = args.examples / (name + ".yaml")
+            config = args.examples / ({"small": "basic", "mixed": "concurrent", "pressure": "kv_pressure"}[name] + ".yaml")
             trace = invoke(args.trace, config, name + "-trace")
             for suffix, rtl in (("normal", normal), ("paused", paused)):
                 run = invoke(args.axi, config, name + "-" + suffix, rtl)
@@ -62,8 +62,8 @@ def main():
                     assert observed == [(0,12,1),(16,12,1),(12,4,1),(32,4,1),(28,4,1),(48,4,1),
                                         (36,4,1),(52,4,1),(0,16,0),(32,8,0),(16,16,0),(48,8,0),
                                         (40,4,1),(56,4,1),(0,16,0),(32,12,0),(16,16,0),(48,12,0)]
-        text = (args.examples / "small.yaml").read_text()
-        multi = (args.examples / "mixed.yaml").read_text().replace("num_layers: 1", "num_layers: 2").replace("kv_heads: 1", "kv_heads: 3").replace("head_dim: 2", "head_dim: 3")
+        text = (args.examples / "basic.yaml").read_text()
+        multi = (args.examples / "concurrent.yaml").read_text().replace("num_layers: 1", "num_layers: 2").replace("kv_heads: 1", "kv_heads: 3").replace("head_dim: 2", "head_dim: 3")
         large = text.replace("head_dim: 2", "head_dim: 1537").replace("transaction_bytes: 16", "transaction_bytes: 8192").replace("max_backend_cycles: 10000", "max_backend_cycles: 200000")
         for name, contents, settings in (("multilayer-narrow", multi, paused), ("boundary-bursts", large, normal)):
             config = workload(name, contents)
@@ -92,7 +92,7 @@ def main():
         invalid = workload("too-large", text.replace("head_dim: 2", "head_dim: 131073"))
         invoke(args.axi, invalid, "capacity-rejected", normal, expected=2)
         bad = workload("bad-axi", "max_burst_beats: 257\n")
-        invoke(args.axi, args.examples/"small.yaml", "bad-config-rejected", bad, expected=2)
+        invoke(args.axi, args.examples/"basic.yaml", "bad-config-rejected", bad, expected=2)
         # Checker negative controls mutate COPIES, never original measurements.
         for kind in ("premature-release", "read-payload"):
             changed = root / ("checker-"+kind)

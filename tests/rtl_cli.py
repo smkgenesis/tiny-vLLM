@@ -46,7 +46,7 @@ def exercise(rtl, trace, example, root):
     defaults = settings("default")
     checked = {}
     for case in ("small", "mixed", "pressure"):
-        config = example.parent / f"{case}.yaml"
+        config = example.parent / ({"small": "basic", "mixed": "concurrent", "pressure": "kv_pressure"}[case] + ".yaml")
         reference = invoke(trace, config, f"{case}-trace")
         result = invoke(rtl, config, f"{case}-rtl", defaults)
         checked[case] = audit(result, reference)
@@ -83,7 +83,7 @@ def exercise(rtl, trace, example, root):
     assert checked["stalled"]["peak_queue_count"] == 1
     assert any(r["reason"] == "backend_staging" for r in rows(stalled / "driver_waits.csv"))
 
-    multilayer_text = (example.parent / "mixed.yaml").read_text(encoding="utf-8").replace("num_layers: 1", "num_layers: 2")
+    multilayer_text = (example.parent / "concurrent.yaml").read_text(encoding="utf-8").replace("num_layers: 1", "num_layers: 2")
     multilayer = workload("multilayer", multilayer_text)
     reference = invoke(trace, multilayer, "multilayer-trace")
     result = invoke(rtl, multilayer, "multilayer-rtl", settings("multilayer", depth=1, service=9, pause=3))
@@ -133,6 +133,8 @@ def exercise(rtl, trace, example, root):
     assert (result / "rtl.vcd").stat().st_size > 100
     overridden = invoke(rtl, multilayer, "dual-cli-override", defaults, architecture="dual-rw")
     checked["dual-cli-override"] = audit(overridden, root / "multilayer-trace")
+    alias = invoke(rtl, multilayer, "split-rw-alias", defaults, architecture="split-rw")
+    assert (alias / "rtl_cycles.csv").read_bytes() == (overridden / "rtl_cycles.csv").read_bytes()
     replay = invoke(rtl, result / "resolved_config.yaml", "dual-replay", result / "resolved_rtl_config.yaml")
     checked["dual-replay"] = audit(replay, root / "multilayer-trace")
     assert (result / "rtl_cycles.csv").read_bytes() == (replay / "rtl_cycles.csv").read_bytes()

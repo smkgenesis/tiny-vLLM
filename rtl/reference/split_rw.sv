@@ -1,7 +1,7 @@
 // Two unchanged service engines, partitioned by direction. fifo_depth is the
 // TOTAL waiting capacity (even, 2..64), split equally between the two queues.
 // The shared completion port transfers at most one result per cycle.
-module kv_service_dual (
+module split_rw (
     input logic clk, reset,
     input logic [31:0] fifo_depth, service_cycles,
     input logic [63:0] arena_bytes,
@@ -60,7 +60,7 @@ module kv_service_dual (
         end
     end
 
-    kv_service read_engine (
+    single_engine read_engine (
         .clk(clk), .reset(reset), .fifo_depth(fifo_depth >> 1),
         .service_cycles(service_cycles), .arena_bytes(arena_bytes),
         .allow_request(allow_request), .test_fault(test_fault),
@@ -76,7 +76,7 @@ module kv_service_dual (
         .read_service_id(), .write_service_id()
         /* verilator lint_on PINCONNECTEMPTY */
     );
-    kv_service write_engine (
+    single_engine write_engine (
         .clk(clk), .reset(reset), .fifo_depth(fifo_depth >> 1),
         .service_cycles(service_cycles), .arena_bytes(arena_bytes),
         .allow_request(allow_request), .test_fault(test_fault),

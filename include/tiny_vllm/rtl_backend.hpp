@@ -26,5 +26,6 @@ public:
     std::optional<U64> poll_completion() override;
     void verify_drained() const;
     void finish(const std::string& status);
+    std::string console_summary() const;
 };
 }

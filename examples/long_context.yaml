@@ -1,0 +1,7 @@
+# Longer synthetic context at toy KV geometry; not a device-scale LLM trace.
+model: {num_layers: 1, kv_heads: 1, head_dim: 8, dtype_bytes: 2}
+scheduler: {max_tokens_per_step: 32, prefill_chunk_tokens: 16, max_active_requests: 1}
+kv_cache: {block_tokens: 16, pool_blocks: 64}
+driver: {transaction_bytes: 64, max_outstanding: 16, max_backend_cycles: 100000}
+requests:
+  - {id: A, arrival_step: 0, prompt_tokens: 512, output_tokens: 8}

@@ -9,7 +9,7 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args()
     source = Path(__file__).resolve().parents[1]
-    selected = [source / name for name in ("README.md", "CMakeLists.txt", ".gitignore", ".gitattributes")]
+    selected = [source / name for name in ("README.md", "LICENSE", "CMakeLists.txt", "CMakePresets.json", ".gitignore", ".gitattributes")]
     for directory in ("include", "src", "rtl", "examples", "tests", "tools", "docs"):
         selected.extend(path for path in (source / directory).rglob("*")
                         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc")

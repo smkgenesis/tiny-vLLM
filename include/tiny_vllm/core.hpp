@@ -1,4 +1,5 @@
 #pragma once
+#include "tiny_vllm/backend.hpp"
 
 #include <cstdint>
 #include <deque>
@@ -9,7 +10,6 @@
 #include <vector>
 
 namespace tiny_vllm {
-using U64 = std::uint64_t;
 
 struct Error : std::runtime_error {
     std::string status;
@@ -33,19 +33,6 @@ struct Config {
 Config load_config(const std::string& path);
 std::string resolved_yaml(const Config& config);
 void validate(const Config& config);
-
-struct MemoryRequest {
-    U64 id{}, address{}, bytes{};
-    bool write{};
-};
-
-class Backend {
-public:
-    virtual ~Backend() = default;
-    virtual bool try_submit(const MemoryRequest&) = 0;
-    virtual void tick() = 0;
-    virtual std::optional<U64> poll_completion() = 0;
-};
 
 // A one-entry backend with completion on the next virtual cycle.
 class TraceBackend final : public Backend {

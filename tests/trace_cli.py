@@ -45,7 +45,7 @@ def main():
 
         for case, peak, steps, transactions_count in [("mixed", "96", "4", "26"), ("pressure", "64", "6", "24")]:
             output = root / case
-            invoke(example.parent / f"{case}.yaml", output, 0)
+            invoke(example.parent / ({"mixed": "concurrent", "pressure": "kv_pressure"}[case] + ".yaml"), output, 0)
             measured = rows(output / "summary.csv")[0]
             for key, value in {"completed_write_bytes": "80", "completed_read_bytes": "128",
                                "peak_allocated_bytes": peak, "peak_reserved_bytes": peak,

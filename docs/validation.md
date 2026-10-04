@@ -1,66 +1,78 @@
-# 검증과 재현
+# Validation and reproduction
 
-## 검증 범위
+Validated environment: Ubuntu 24.04.4 / WSL2, GCC 13.3, CMake 3.28.3, Ninja 1.11.1, yaml-cpp 0.8, Catch2 3.4, Verilator 5.020, Python 3.12.3. This is not certification of other OS/toolchain combinations.
 
-검증 환경은 Ubuntu 24.04.4 / WSL2, GCC 13.3, CMake 3.28.3, Ninja 1.11.1, yaml-cpp 0.8, Catch2 3.4, Verilator 5.020, Python 3.12.3이다. 다른 OS·toolchain 조합까지 검증했다는 뜻은 아니다.
+## Automated checks
 
-| 검사 | 확인 내용 |
+| Area | Evidence |
 |---|---|
-| Core / CLI | 독립 주소 golden, scheduler/KV 상태, 경계·재사용·완료 순서, 설정 오류 |
-| 예제 RTL | FIFO·응답 정지·지연·pointer wrap·주소 범위, 완료 누락/중복 |
-| 외부 AXI | 실제 RAM readback, strobe, ID, 4 KiB 분할, 256-beat, phase/수명 |
-| Negative control | 관측값 변조·완료 전달 누락, 복사한 기록의 조기 반환·RDATA 변조 |
-| 재현 | 새 build/output, resolved 입력 replay, 저장된 wire를 별도 Python으로 검사 |
+| Core | Independent address golden, scheduler/KV state, boundaries, block reuse, reordered completion, configuration errors |
+| Reference RTL | FIFO order/wrap, service timing, response backpressure, split-engine progress/arbitration, invalid addresses |
+| Standard wrapper | 64-bit IDs, held responses, real target error propagation, staging, trace comparison, VCD, replay, watchdog |
+| External AXI | RAM readback, strobes, 64-bit IDs, 4 KiB and 256-beat splits, dependencies and lifetime |
+| Negative controls | Missing/duplicate completions, corrupted readback, copied premature-release/busy/completion records |
 
-현재 기능 검사는 24개 CTest다(Trace만 빌드하면 14개). Dual의 방향별 진행·응답 정지 중 arbitration 안정성·FIFO 순서·pointer wrap·drain을 포함한다. CLI에서는 dual의 다층 의존성·세 fault·잘못된 설정·CLI 선택·resolved replay·VCD 생성을 검사한다. 복사한 busy 신호를 변조하면 별도 wire 검사가 거부해야 한다.
+The full configuration has **27 CTests**. The `release` preset has 23 (AXI off); trace-only has 14. Tests of the bundled template are disabled when custom RTL sources are selected. Passing the template tests is not a correctness certificate for a user's DUT.
 
-공통 generator와 trace/RTL 결과의 일치는 전송 일관성 확인이다. Generator의 정답은 별도의 작은 주소 기준·byte 식으로 확인한다. 모든 입력에 대한 형식 검증이나 AXI4 전체 적합성 인증은 아니다.
+Independent wire auditors compare logged pins against frontend transactions and check completion-dependent phase/commit/release ordering. Shared-generator trace comparison checks transport consistency. Separate small address goldens and closed-form byte totals check the modeled access policy. Neither is a proof over all workloads or full AXI4 compliance.
 
-## 대표 결과
+## External RTL integration
 
-| AXI workload | Write / read bytes | Descriptor | 정상 / 응답 정지 cycles |
+The vendored `alexforencich/verilog-axi` RAM is unmodified at commit `516bd5dadc3365b7f9e225d2af8fe0b8d804fe53`, with its MIT notice and source hash retained. It is a pinned validation target from a deprecated upstream repository, not a claim of general AXI support.
+
+```bash
+cmake --preset release -DTINY_VLLM_ENABLE_AXI=ON
+cmake --build --preset release
+"$HOME/.cache/tiny-vllm/release/tiny-vllm-axi" \
+  --config examples/basic.yaml --rtl-config examples/axi.yaml --output results/axi-basic
+python3 tools/check_axi_run.py results/axi-basic
+```
+
+| Example | Write / read bytes | Memory descriptors | Normal / response-paused cycles |
 |---|---:|---:|---:|
-| small | 56 / 104 | 18 | 71 / 151 |
-| mixed | 80 / 128 | 26 | 97 / 207 |
-| pressure | 80 / 128 | 24 | 95 / 207 |
+| basic | 56 / 104 | 18 | 71 / 151 |
+| concurrent | 80 / 128 | 26 | 97 / 207 |
+| kv_pressure | 80 / 128 | 24 | 95 / 207 |
 
-Small의 18 descriptor는 AW 12개와 AR 10개로 분할된다. Pressure에서는 두 번째 요청의 admission이 step 4로 늦춰지며, 정상 종료 후 모든 KV 자원은 반환된다. 다층·다중 head 조건은 720/1152 B, 4 KiB/256-beat 조건은 43036/79924 B를 검증한다. 홀수 주소·40-bit를 넘는 ID·부분 덮어쓰기·read/write 동시 진행은 직접 backend 검사에 포함된다.
+The AXI suite has nine normal executions (including one resolved replay), plus expected failures. Multilayer/head tests check 720/1152 B; large burst tests check 43036/79924 B. Odd addresses, IDs above 40 bits, partial overwrites, simultaneous lanes, strobe/data corruption, and live-resource failures are covered. Injected errors change adapter observations/delivery; they are not vendor design bugs. [Exact interface behavior](backend-interface.md#external-axi-adapter).
 
-전체 AXI suite는 기본 세 workload의 정상/정지 6회, 다층·큰 burst 2회, resolved replay 1회로 정상 9회다. Replay는 독립 실험 조건이 아니다. Adapter 오류 주입은 exit 3, 잘못된 설정은 exit 2이며 실패 기록도 남긴다.
+## Reproduce everything
 
-## 전체 재현
-
-빌드 의존성은 [README](../README.md)를 따른다. 그림에 필요한 Python 패키지만 별도 환경에 설치한다.
+Install [build dependencies](installation.md), then prepare the plotting environment once:
 
 ```bash
 python3 -m venv "$HOME/.cache/tiny-vllm/plot-env"
-"$HOME/.cache/tiny-vllm/plot-env/bin/python" -m pip install -r tools/experiments/requirements.txt
+"$HOME/.cache/tiny-vllm/plot-env/bin/python" -m pip install -r tools/study/requirements.txt
 python3 tools/reproduce.py \
   --build-root "$HOME/.cache/tiny-vllm/reproduce-build" \
   --output results/reproduction \
   --plot-python "$HOME/.cache/tiny-vllm/plot-env/bin/python" --jobs 4
 ```
 
-Build/output은 새 경로여야 한다. Trace 및 RTL/AXI 빌드, CTest, protocol/AXI 검사, 기존 실험, 분석, 그림과 single/dual 연구를 실행한다. `reproduction.json`은 명령·exit·전체 상태, `logs/`는 명령 출력, `protocol/`과 `external-axi/`는 정상·실패 원시 자료를 담는다. 기존 실험은 `experiments/`, `analysis/`, `figures/`, 아키텍처 연구의 11쌍·33회 실행과 표·그림·VCD는 `architecture/`에 남긴다. 실패 시 nonzero exit로 종료한다.
+Both build/output paths must be new. The script builds trace plus all RTL adapters, runs CTest, preserves protocol failures, tests all six onboarding workloads through the template, builds a **copied custom source** through the tutorial route, and runs the original studies/plots. Commands, exits, and logs are in `reproduction.json` and `logs/`. Expected negative controls must fail with their declared exit code for the suite to pass.
 
-## 실험과 패키징
+`protocol/`, `external-axi/`, `standard-target/`, and `custom-tutorial/` contain integration evidence. `experiments/`, `analysis/`, and `figures/` retain the original 23-condition evaluation. `architecture/` contains 11 trace runs, 22 reference RTL runs, tables, PNG/SVG figures, and the mixed C4 VCDs.
+
+The pre-onboarding artifact is preserved by tag **`kcs2027-freeze`**. To compare against a previous successful reproduction, add `--baseline /path/to/previous/reproduction`. The script compares every CSV/PNG under the original experiment, AXI, architecture, analysis, and figure directories and writes `baseline-comparison.json`. Any missing or changed file fails the run. Paths, host timing, metadata source revisions, and VCD hierarchy names are intentionally excluded.
+
+The onboarding reorganization passed a fresh source-package reproduction on 2026-10-05: **570 CSV/PNG files matched the freeze evidence byte-for-byte**, and the copied-wrapper tutorial completed 26 transactions with 80 write / 128 read bytes. This is automated integration evidence, not a participant timing measurement.
+
+## Studies and packaging
+
+The original 23 conditions contain 19 unique configurations and four repeated pairs. FIFO depths 1/2/4 yield request stalls 100/64/10 with span 189/189/189 cycles. Changing waiting location does not necessarily change the single-engine bottleneck. The separate architecture study and its controls are described in [case-study.md](case-study.md); study plans and bytes remain unchanged by the onboarding reorganization.
 
 ```bash
-python3 tools/experiments/run.py \
-  --trace "$HOME/.cache/tiny-vllm/build/tiny-vllm-trace" \
-  --rtl "$HOME/.cache/tiny-vllm/build/tiny-vllm-rtl" --output results/experiments
-python3 tools/experiments/analyze.py results/experiments --output results/analysis
-"$HOME/.cache/tiny-vllm/plot-env/bin/python" tools/experiments/plot.py results/analysis --output results/figures
+python3 tools/study/run.py --trace /path/tiny-vllm-trace --rtl /path/tiny-vllm-rtl --output results/study
+python3 tools/study/analyze.py results/study --output results/analysis
+"$HOME/.cache/tiny-vllm/plot-env/bin/python" tools/study/plot.py results/analysis --output results/figures
 python3 tools/package_source.py --output dist/tiny-vllm-source.zip
 ```
 
-`tools/experiments/plan.py`가 실행 전에 입력·예측·byte 기대값을 선언한다. 23조건은 19개 고유 설정이며 4쌍은 반복이다. Trace/예제 RTL에서 46회 실행한다. FIFO 1/2/4에서 stall 100/64/10, span 189/189/189 cycles라는 결과는 대기 위치 변화와 단일 service 병목을 보여 준다. Chunk 1/2/3은 prefill step 최대량 8/16/24 B를 바꾸지만 전체 step 최대량은 모두 64 B다. 변화 없는 결과를 개선으로 재해석하지 않는다.
+The source archive contains code, examples, tests, documentation, CMake presets, and licenses. It excludes Git, environments, build trees, and raw run directories. Raw evidence stays under ignored `results/`; published case-study CSVs/figures remain under `docs/`.
 
-패키지는 소스·문서·예제·검사·외부 RTL 라이선스를 포함하고 Git, build, results, 환경을 제외한다. 기존 ZIP과 결과는 덮어쓰지 않는다. 원시 실행 자료·실패·개발 기록은 로컬 `results/`와 `build/`에 보존하며 저장소에는 재현 도구와 이 요약을 둔다.
+## Optional upstream vLLM comparison
 
-## 선택적 vLLM 비교
-
-기준은 [고정 vLLM commit](https://github.com/vllm-project/vllm/tree/b558f160a2c0abcb5902acc3c91a14c38a4af173)이다. 수정하지 않은 scheduler/allocator에 synthetic `ModelRunnerOutput`을 주며 가중치·GPU kernel은 실행하지 않는다. 이 Python 환경은 C++/RTL 실행에 필요하지 않다.
+The unchanged scheduler/allocator from [vLLM commit b558f160](https://github.com/vllm-project/vllm/tree/b558f160a2c0abcb5902acc3c91a14c38a4af173) is driven with synthetic `ModelRunnerOutput`. No weights or GPU kernels run. This Python environment is not required to use the frontend or RTL targets.
 
 ```bash
 python3 -m venv "$HOME/.cache/tiny-vllm/reference-env"
@@ -72,11 +84,11 @@ VLLM_TARGET_DEVICE=empty "$HOME/.cache/tiny-vllm/reference-env/bin/python" -m pi
   -e "$HOME/.cache/tiny-vllm/vllm-reference" --no-build-isolation --no-deps
 "$HOME/.cache/tiny-vllm/reference-env/bin/python" tools/reference/run.py \
   --vllm-source "$HOME/.cache/tiny-vllm/vllm-reference" \
-  --tiny-executable "$HOME/.cache/tiny-vllm/build/tiny-vllm-trace" --output results/reference
+  --tiny-executable "$HOME/.cache/tiny-vllm/release/tiny-vllm-trace" --output results/reference
 ```
 
-기존 환경은 재사용한다. 정상 9조건 중 7개·104행 일치, 2개(`chunk-one`, `longer-mixed`) 불일치다. Upstream은 [eligible 요청이 하나일 때 chunk threshold를 해제](https://github.com/vllm-project/vllm/blob/b558f160a2c0abcb5902acc3c91a14c38a4af173/vllm/v1/core/sched/scheduler.py#L623-L640)하고 tiny-vLLM은 항상 상한을 적용한다. 전체 suite는 **exit 1**을 유지한다. Memory pressure 정책·물리 주소·GPU traffic 동일성은 이 비교에서 제외한다.
+Reuse an existing environment/checkout if available. The recorded result is **7 matching conditions / 104 matching rows, and 2 chunk-policy differences** (`chunk-one`, `longer-mixed`). Upstream [disables the threshold for one eligible request](https://github.com/vllm-project/vllm/blob/b558f160a2c0abcb5902acc3c91a14c38a4af173/vllm/v1/core/sched/scheduler.py#L623-L640); tiny-vLLM always applies its chunk cap. The comparison suite intentionally returns **exit 1** for those differences. Pressure policy, physical addresses, and GPU traffic equality are outside this comparison.
 
-## 연구에서 주장하는 범위
+## Human onboarding
 
-이 결과는 명시된 synthetic 접근 정책을 외부 RTL에 공급하고 수락·완료·KV 수명을 검증하는 구현 사례다. [LLMServingSim](https://arxiv.org/html/2408.05499v1), [Vidur](https://github.com/microsoft/vidur), [FlowSim](https://github.com/microsoft/FlowSim), [Ramulator](https://github.com/CMU-SAFARI/ramulator2) 등 선행 도구가 있으므로 HW/SW 연결 자체의 최초성이나 비교 우위를 주장하지 않는다. 외부 RTL 하나의 적용성을 확인한 것이며 실제 LLM 속도·DRAM 성능·넓은 버그 검출 우위를 측정한 것은 아니다.
+The build/run/check tutorial is exercised automatically. No student participant study has yet been completed. Use the [prepared usability protocol](usability.md) before making claims about unassisted integration time or adoption.

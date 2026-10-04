@@ -17,9 +17,9 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parents[2]
-    base = yaml.safe_load((root / "examples/mixed.yaml").read_text(encoding="utf-8"))
+    base = yaml.safe_load((root / "examples/concurrent.yaml").read_text(encoding="utf-8"))
     cases = {}
-    cases["single"] = yaml.safe_load((root / "examples/small.yaml").read_text(encoding="utf-8"))
+    cases["single"] = yaml.safe_load((root / "examples/basic.yaml").read_text(encoding="utf-8"))
     cases["mixed"] = copy.deepcopy(base)
     cases["active-one"] = copy.deepcopy(base)
     cases["active-one"]["scheduler"]["max_active_requests"] = 1

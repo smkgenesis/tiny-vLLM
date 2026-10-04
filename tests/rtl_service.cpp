@@ -1,13 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <verilated.h>
-#include "Vkv_service.h"
-#include "Vkv_service_dual.h"
+#include "Vsingle_engine.h"
+#include "Vsplit_rw.h"
 #include <deque>
 #include <vector>
 #include <tuple>
 
 namespace {
-template<class Model = Vkv_service> struct Fixture {
+template<class Model = Vsingle_engine> struct Fixture {
     VerilatedContext context;
     Model dut{&context};
     Fixture(unsigned depth = 1, unsigned service = 3) {
@@ -21,7 +21,7 @@ template<class Model = Vkv_service> struct Fixture {
 };
 }
 TEST_CASE("dual engines progress independently and hold arbitration through backpressure") {
-    Fixture<Vkv_service_dual> f(4, 1);
+    Fixture<Vsplit_rw> f(4, 1);
     auto& d = f.dut;
     // Start the write first, with the completion sink stopped. A read becomes
     // ready later, but must not replace the already presented write response.
@@ -48,7 +48,7 @@ TEST_CASE("dual engines progress independently and hold arbitration through back
 }
 
 TEST_CASE("dual queues retain per-direction order and drain across pointer wrap") {
-    Fixture<Vkv_service_dual> f(4, 3);
+    Fixture<Vsplit_rw> f(4, 3);
     auto& d = f.dut;
     std::deque<unsigned> pending[2];
     unsigned next = 1, done = 0, overlap = 0, stalls = 0;

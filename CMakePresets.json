@@ -1,0 +1,20 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Reference RTL and standard-port template (Ubuntu/WSL)",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/.cache/tiny-vllm/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON",
+        "TINY_VLLM_ENABLE_RTL": "ON",
+        "TINY_VLLM_ENABLE_TARGET": "ON",
+        "TINY_VLLM_ENABLE_AXI": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [{"name": "release", "configurePreset": "release", "jobs": 4}],
+  "testPresets": [{"name": "release", "configurePreset": "release", "output": {"outputOnFailure": true}}]
+}

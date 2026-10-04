@@ -1,6 +1,6 @@
 #include "tiny_vllm/rtl_backend.hpp"
-#include "Vkv_service.h"
-#include "Vkv_service_dual.h"
+#include "Vsingle_engine.h"
+#include "Vsplit_rw.h"
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 #include <yaml-cpp/yaml.h>
@@ -11,6 +11,8 @@
 #include <map>
 #include <set>
 #include <variant>
+#include <sstream>
+#include <iomanip>
 
 namespace tiny_vllm {
 namespace {
@@ -32,7 +34,7 @@ RtlConfig load_rtl_config(const std::string& path) {
                 throw Error("config_error", "RTL config fields must be scalars");
             const auto key = item.first.Scalar(), text = item.second.Scalar();
             if (!seen.insert(key).second) throw Error("config_error", "Duplicate RTL field: " + key);
-            if (key == "architecture") { result.architecture = text; continue; }
+            if (key == "architecture") { result.architecture = text == "split-rw" ? "dual-rw" : text; continue; }
             U64 value{};
             const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
             if (error != std::errc{} || end != text.data() + text.size())
@@ -61,7 +63,7 @@ std::string resolved_rtl_yaml(const RtlConfig& c) {
 
 struct RtlBackend::Impl {
     VerilatedContext context;
-    std::variant<std::unique_ptr<Vkv_service>, std::unique_ptr<Vkv_service_dual>> model;
+    std::variant<std::unique_ptr<Vsingle_engine>, std::unique_ptr<Vsplit_rw>> model;
     std::unique_ptr<VerilatedVcdC> waveform;
     template<class F> void with_dut(F&& f) { std::visit([&](auto& p) { f(*p); }, model); }
     RtlConfig config;
@@ -88,8 +90,8 @@ struct RtlBackend::Impl {
             (config.architecture == "dual-rw" && config.fifo_depth % 2))
             throw Error("config_error", "architecture must be single or dual-rw; dual-rw needs even total fifo_depth 2..64; trace_waveform must be 0 or 1");
         context.traceEverOn(bool(config.trace_waveform));
-        if (config.architecture == "dual-rw") model = std::make_unique<Vkv_service_dual>(&context);
-        else model = std::make_unique<Vkv_service>(&context);
+        if (config.architecture == "dual-rw") model = std::make_unique<Vsplit_rw>(&context);
+        else model = std::make_unique<Vsingle_engine>(&context);
         cycles << "edge,req_valid,req_ready,req_id,req_address,req_bytes,req_write,cmp_valid,cmp_ready,cmp_id,cmp_error,queue_count,service_start,service_id,read_busy,write_busy,read_completion_wait,write_completion_wait,read_queue_count,write_queue_count,read_service_start,read_service_id,write_service_start,write_service_id\n";
         handshakes << "event,edge,transaction_id,address,bytes,write,error,latency_cycles\n";
         with_dut([&](auto& dut) {
@@ -236,5 +238,16 @@ void RtlBackend::finish(const std::string& status) {
         << ',' << s.read_requests << ',' << s.write_requests << ',' << s.read_queue_sum << ',' << s.write_queue_sum << ',' << s.read_peak << ',' << s.write_peak << '\n';
     out.close();
     });
+}
+std::string RtlBackend::console_summary() const {
+    const auto& s = *impl_;
+    const auto busy = s.read_only + s.write_only + s.overlap;
+    std::ostringstream out;
+    out << "Completion span: " << s.last_completion - s.first_request << " RTL cycles\n"
+        << "Peak queue: " << s.peak_queue << " waiting descriptors\n"
+        << "R/W overlap: " << std::fixed << std::setprecision(2) << (busy ? 100.0 * s.overlap / busy : 0.0) << "% of busy cycles\n"
+        << "Request stalls: " << s.stalls << " cycles\n";
+    if (s.waveform) out << "Waveform: " << (s.output / "rtl.vcd").string() << '\n';
+    return out.str();
 }
 }
