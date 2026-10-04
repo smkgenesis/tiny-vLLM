@@ -30,7 +30,7 @@ def run_experiments(output, trace, rtl):
     plan["source_sha256"] = {str(p.relative_to(source)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(inputs)}
     plan["executables"] = {label: dict(path=str(p), sha256=hashlib.sha256(p.read_bytes()).hexdigest())
                            for label, p in (("trace", trace), ("rtl", rtl))}
-    save(output / "plan.json", plan)  # Complete plan exists before any workload runs.
+    save(output / "plan.json", plan)  # Record the study configuration and provenance.
     runs = []
     for case in plan["cases"]:
         folder = output / case["name"]

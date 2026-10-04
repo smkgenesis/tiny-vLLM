@@ -44,7 +44,7 @@ For failures, summaries are partial. A failed run has no valid completion span o
 - `idle_cycles`, `read_only_cycles`, `write_only_cycles`, `overlap_cycles`: mutually exclusive states sampled before each edge; their sum is `observed_cycles`.
 - Direction utilization: `(direction_only + overlap) / observed_cycles`.
 - Busy means engine occupied, including waiting for completion transfer. Direction-specific `completion_wait_cycles` separates this wait from fixed-cost service.
-- FIFO sums and peaks count waiting descriptors before edges. Mean queue occupancy is `queue_sum / observed_cycles`. The aggregate legacy peak also considers post-edge occupancy.
+- FIFO sums and peaks count waiting descriptors before edges. Mean queue occupancy is `queue_sum / observed_cycles`. The aggregate peak also considers post-edge occupancy.
 - Request latency: completion edge − that descriptor's RTL acceptance edge. It includes queue wait, service, and response wait.
 - Driver `backend_staging` and `outstanding_limit` waits describe frontend blocking. They may overlap other stall metrics; do not add the categories to reconstruct span.
 

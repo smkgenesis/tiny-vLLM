@@ -32,7 +32,7 @@ module split_rw (
     assign req_ready = req_write ? w_ready : r_ready;
     assign busy = read_busy || write_busy;
     assign queue_count = read_queue_count + write_queue_count;
-    // Legacy single-engine fields; simultaneous starts are recorded separately.
+    // Aggregate service fields; per-direction signals record simultaneous starts.
     assign service_start = read_service_start || write_service_start;
     assign service_id = read_service_start ? read_service_id : write_service_id;
     assign select_write = locked ? locked_write : (w_valid && (!r_valid || prefer_write));

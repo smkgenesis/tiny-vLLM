@@ -49,13 +49,13 @@ The interface carries no numeric data. A data-bearing DUT needs a wrapper or a t
 
 ## Reference target controls
 
-`tiny-vllm-rtl` uses a separate instrumentation-aware adapter for the bundled targets. `--rtl single|split-rw` overrides `architecture` in the RTL YAML. `dual-rw` is an accepted alias and the historical canonical value in resolved configurations and study CSVs.
+`tiny-vllm-rtl` uses a separate instrumentation-aware adapter for the bundled targets. `--rtl single|split-rw` overrides `architecture` in the RTL YAML.
 
 `fifo_depth` is a runtime waiting-capacity limit, excluding active descriptors. Single supports 1..64. Split requires an even total 2..64 and assigns half to each direction. The physical arrays remain 64 entries per engine; matching runtime capacity does not match area.
 
 `service_cycles` is the same fixed descriptor cost for reads/writes. A service started at edge S cannot complete before S+`service_cycles`. Completion backpressure keeps the engine occupied. A full queue refuses admission even when a dequeue is possible on that edge. A blocked staging request can delay the opposite direction.
 
-Split uses round-robin completion arbitration, locking the selected response through stalls. It preserves FIFO order within each direction. Both engines can start in one cycle, so audits use direction-specific start/ID signals; the legacy aggregate `service_id` gives read priority.
+Split uses round-robin completion arbitration, locking the selected response through stalls. It preserves FIFO order within each direction. Both engines can start in one cycle, so audits use direction-specific start/ID signals; the aggregate `service_id` gives read priority.
 
 `initial_request_pause_cycles` gates acceptance for initial workload edges. `trace_waveform: 1` enables `rtl.vcd` (default 0). These controls are reference-target features, not requirements for a custom DUT.
 

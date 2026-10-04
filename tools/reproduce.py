@@ -1,6 +1,6 @@
 """Fresh builds, real CLI checks, experiments and plots using only this source tree.
 
-System build dependencies and a Python environment with plot-requirements.txt
+System build dependencies and a Python environment with tools/study/requirements.txt
 must already be installed. Upstream vLLM comparison is a separate optional run.
 All commands and failures remain in the new output directory.
 """
@@ -19,7 +19,7 @@ def main():
     p.add_argument("--output", type=Path, required=True, help="New evidence directory")
     p.add_argument("--plot-python", type=Path, required=True)
     p.add_argument("--jobs", type=int, default=2)
-    p.add_argument("--baseline", type=Path, help="Optional earlier reproduction directory for exact numerical regression comparison")
+    p.add_argument("--baseline", type=Path, help="Optional result directory for exact CSV/PNG regression comparison")
     args = p.parse_args()
     source = Path(__file__).resolve().parents[1]
     build, output = args.build_root.resolve(), args.output.resolve()

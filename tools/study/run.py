@@ -29,7 +29,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     plan = build_plan()
     plan["declared_at_utc"] = datetime.now(timezone.utc).isoformat()
-    save(output / "plan.json", plan)  # Persist all predictions BEFORE the first subprocess.
+    save(output / "plan.json", plan)  # Record inputs and expected behavior.
     results = []
     for case in plan["cases"]:
         folder = output / case["name"]

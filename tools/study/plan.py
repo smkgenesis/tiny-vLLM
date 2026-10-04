@@ -1,4 +1,4 @@
-"""Small, declared-before-execution experiment plan (no parameter search)."""
+"""Fixed workload and architecture study configurations."""
 from copy import deepcopy
 
 
@@ -81,7 +81,7 @@ def build_plan():
 
 
 def build_architecture_plan():
-    """Frozen architectural comparison: total waiting slots, not silicon area, matched."""
+    """Architectural comparison with matched total waiting slots, not silicon area."""
     base = {
         "model": dict(num_layers=1, kv_heads=1, head_dim=8, dtype_bytes=2),
         "scheduler": dict(max_tokens_per_step=32, prefill_chunk_tokens=4, max_active_requests=1),

@@ -47,7 +47,7 @@ There is no numeric attention, token sampling, GPU execution, calibrated DRAM mo
 | Memory request / transaction | One byte-range operation with a numeric completion ID |
 | Outstanding memory requests | Accepted by the backend but not yet completed; includes adapter staging |
 | Backpressure | Temporary refusal at the backend API or at the RTL ready/valid interface |
-| Completion | A previously accepted memory operation has finished; its ID can be retired |
+| Completion | An accepted memory operation has finished; its ID can be retired |
 | KV block | Fixed token-count allocation unit; physical bundles include all modeled layers/heads |
 | Completion span | Last completion edge minus first RTL request handshake edge; not frontend acceptance time |
 

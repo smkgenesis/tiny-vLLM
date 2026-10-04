@@ -6,15 +6,15 @@ The frontend, KV policy, address generator, and Backend API stay fixed while the
 
 ## Observations
 
-1. Single-request execution exposes no read/write overlap under the declared dependency policy.
+1. Single-request execution exposes no read/write overlap under the modeled dependency policy.
 2. Concurrent requests can expose inter-request independence that split engines exploit.
 3. Serving concurrency alone does not guarantee more overlap.
 
-Restricting the frontend to one outstanding memory request removes the benefit in both declared C4 controls. This supports the role of overlapping work in these cases; it does not establish a general performance theorem.
+Restricting the frontend to one outstanding memory request removes the benefit in both C4 controls. This supports the role of overlapping work in these cases; it does not establish a general performance theorem.
 
-## Declared experiment
+## Experiment
 
-[`build_architecture_plan()`](../tools/study/plan.py) declares all inputs, predictions, and independent byte totals before execution. The runner records the complete plan, time, and source/binary hashes before starting workloads. Failed cases remain in the record and prevent success-only aggregation. The workload/service parameters were not selected after observing the results.
+The study compares 11 fixed workload configurations on two reference targets. [`build_architecture_plan()`](../tools/study/plan.py) defines the inputs and independent expected byte totals. Run metadata records configurations and source/binary hashes.
 
 | Parameter | Fixed setting |
 |---|---|
@@ -36,7 +36,7 @@ Total **runtime waiting capacity** is matched, not physical storage or area. Spl
 - Mixed: four repetitions of `(24,2),(2,16)`, active=1/2/4/8.
 - Serial-driver controls: homogeneous/mixed active=4 with outstanding=1.
 
-There are 11 pairs: 11 trace and 22 RTL executions. These are deterministic synthetic conditions, not independent statistical samples. The prediction allows overlap with multiple requests, but does not predict monotonic improvement.
+There are 11 pairs: 11 trace and 22 RTL executions. These are deterministic synthetic conditions, not independent statistical samples.
 
 ## All results
 
@@ -58,7 +58,7 @@ Span is last completion edge minus first RTL request handshake edge. The ratio i
 
 ![Spans and controls](figures/architecture-span.png)
 
-Exact values: [comparisons](results/architecture-comparisons.csv) and [all metrics](results/architecture-metrics.csv). Frozen CSV/config/figure labels use `dual-rw`, the historical name for split read/write. CLI `--rtl split-rw` selects the same target. No numerical results changed in the onboarding reorganization.
+Exact values: [comparisons](results/architecture-comparisons.csv) and [all metrics](results/architecture-metrics.csv).
 
 Single-request W/R=480/2,688 B with 66 transactions; homogeneous=3,840/21,504 B with 528; mixed=5,376/22,400 B with 584. Transaction counts happen to remain unchanged across concurrency in this study; other batching/splitting configurations may differ.
 
@@ -76,13 +76,13 @@ Homogeneous C4→C8 reduces overlap from 266 to 224 cycles. Idle decreases from 
 
 More input stalls need not mean a longer span. Mixed C8 has 2,092 single-engine request-stall cycles versus 2,474 split cycles. Each split direction has fewer waiting slots, changing where work waits. Driver outstanding-limit wait is zero here. Wait categories can overlap and cannot be added to reconstruct span.
 
-These results cover a small declared length set, a fixed descriptor cost, and the `prefill_store_decode_scan` policy. Decode scans and global step barriers limit overlap. Numeric compute, prefill attention reads, DRAM banks/timing, area, power, and wall-clock arrival rates are absent. Completion feedback controls progress; it does not make scheduling adaptive. A different testbench implementing the same dependencies could reproduce the effect.
+These results cover a small fixed length set, a fixed descriptor cost, and the `prefill_store_decode_scan` policy. Decode scans and global step barriers limit overlap. Numeric compute, prefill attention reads, DRAM banks/timing, area, power, and wall-clock arrival rates are absent. Completion feedback controls progress; it does not make scheduling adaptive. A different testbench implementing the same dependencies could reproduce the effect.
 
 ## Real activity and reproduction
 
 ![Measured service intervals](figures/architecture-waveform.png)
 
-The activity figure uses actual service-start/completion records from mixed C4. Its window is chosen mechanically: first split overlap edge −15 through +75. Both panels use the same absolute edge axis. Labels are serving-request owners; headline metrics cover the entire run. `mixed-c4/{single,dual-rw}/rtl.vcd` retains the actual internal signals.
+The activity figure uses actual service-start/completion records from mixed C4. Its window is chosen mechanically: first split overlap edge −15 through +75. Both panels use the same absolute edge axis. Labels are serving-request owners; headline metrics cover the entire run. Each mixed C4 RTL run directory contains `rtl.vcd` with the actual internal signals.
 
 The full [reproduction command](validation.md#reproduce-everything) includes the study. To run only the study:
 
@@ -92,4 +92,4 @@ The full [reproduction command](validation.md#reproduce-everything) includes the
   --rtl "$HOME/.cache/tiny-vllm/release/tiny-vllm-rtl" --output results/architecture
 ```
 
-Re-audit saved results with `--input results/architecture --output results/architecture-reaudit` instead of binary arguments. Every output path must be new. Raw runs stay in `results/`; published CSVs and figures are copied directly from audited study output. The original artifact is retained at `kcs2027-freeze`.
+Re-audit saved results with `--input results/architecture --output results/architecture-reaudit` instead of binary arguments. Every output path must be new. Raw runs stay in `results/`; published CSVs and figures are copied directly from audited study output.

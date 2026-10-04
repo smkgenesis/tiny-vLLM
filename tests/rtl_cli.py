@@ -53,7 +53,7 @@ def exercise(rtl, trace, example, root):
         summary = rows(result / "summary.csv")[0]
         assert (summary["completed_write_bytes"], summary["completed_read_bytes"]) == (("56", "104") if case == "small" else ("80", "128"))
         if case == "small":
-            # Independently specified stage-0 address oracle, not trace output.
+            # Independently specified address oracle, not trace output.
             completed = rows(result / "transactions.csv")
             observed = [(int(r["address"]), int(r["bytes"]), int(r["write"])) for r in completed if r["event"] == "completed"]
             assert observed == [(0,12,1),(16,12,1),(12,4,1),(32,4,1),(28,4,1),(48,4,1),
@@ -117,7 +117,7 @@ def exercise(rtl, trace, example, root):
     (root / "premature-release-check.json").write_text(json.dumps(dict(exit=negative.returncode, stdout=negative.stdout, stderr=negative.stderr), indent=2), encoding="utf-8")
     assert negative.returncode == 1 and "Premature block release" in negative.stdout
 
-    # Errors and a second attempt must preserve prior evidence.
+    # Errors and repeated runs must not overwrite output.
     original = (root / "small-rtl" / "summary.csv").read_bytes()
     invoke(rtl, example, "small-rtl", defaults, code=4)
     assert (root / "small-rtl" / "summary.csv").read_bytes() == original

@@ -57,7 +57,7 @@ def main():
                 if name == "pressure":
                     assert [(r["request_id"], r["step"]) for r in rows(run/"events.csv") if r["event"] == "admitted"] == [("A","0"),("B","4")]
                 if name == "small":
-                    # Independent fixed address oracle from the original contract.
+                    # Independent fixed address oracle for the workload contract.
                     observed = [(int(r["address"]),int(r["bytes"]),int(r["write"])) for r in rows(run/"transactions.csv") if r["event"] == "completed"]
                     assert observed == [(0,12,1),(16,12,1),(12,4,1),(32,4,1),(28,4,1),(48,4,1),
                                         (36,4,1),(52,4,1),(0,16,0),(32,8,0),(16,16,0),(48,8,0),

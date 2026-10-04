@@ -49,17 +49,15 @@ python3 tools/reproduce.py \
   --plot-python "$HOME/.cache/tiny-vllm/plot-env/bin/python" --jobs 4
 ```
 
-Both build/output paths must be new. The script builds trace plus all RTL adapters, runs CTest, preserves protocol failures, tests all six onboarding workloads through the template, builds a **copied custom source** through the tutorial route, and runs the original studies/plots. Commands, exits, and logs are in `reproduction.json` and `logs/`. Expected negative controls must fail with their declared exit code for the suite to pass.
+Both build/output paths must be new. The script builds trace plus all RTL adapters, runs CTest, checks protocol failures, tests all six example workloads through the template, builds a **copied custom source** through the tutorial route, and reproduces the studies and plots. Commands, exits, and logs are in `reproduction.json` and `logs/`. Expected negative controls must fail with their specified exit code for the suite to pass.
 
-`protocol/`, `external-axi/`, `standard-target/`, and `custom-tutorial/` contain integration evidence. `experiments/`, `analysis/`, and `figures/` retain the original 23-condition evaluation. `architecture/` contains 11 trace runs, 22 reference RTL runs, tables, PNG/SVG figures, and the mixed C4 VCDs.
+`protocol/`, `external-axi/`, `standard-target/`, and `custom-tutorial/` contain integration evidence. `experiments/`, `analysis/`, and `figures/` contain the 23-condition evaluation. `architecture/` contains 11 trace runs, 22 reference RTL runs, tables, PNG/SVG figures, and the mixed C4 VCDs.
 
-The pre-onboarding artifact is preserved by tag **`kcs2027-freeze`**. To compare against a previous successful reproduction, add `--baseline /path/to/previous/reproduction`. The script compares every CSV/PNG under the original experiment, AXI, architecture, analysis, and figure directories and writes `baseline-comparison.json`. Any missing or changed file fails the run. Paths, host timing, metadata source revisions, and VCD hierarchy names are intentionally excluded.
-
-The onboarding reorganization passed a fresh source-package reproduction on 2026-10-05: **570 CSV/PNG files matched the freeze evidence byte-for-byte**, and the copied-wrapper tutorial completed 26 transactions with 80 write / 128 read bytes. This is automated integration evidence, not a participant timing measurement.
+The copied-wrapper tutorial completes 26 transactions with 80 write / 128 read bytes using `examples/concurrent.yaml`.
 
 ## Studies and packaging
 
-The original 23 conditions contain 19 unique configurations and four repeated pairs. FIFO depths 1/2/4 yield request stalls 100/64/10 with span 189/189/189 cycles. Changing waiting location does not necessarily change the single-engine bottleneck. The separate architecture study and its controls are described in [case-study.md](case-study.md); study plans and bytes remain unchanged by the onboarding reorganization.
+The 23 conditions contain 19 unique configurations and four repeated pairs. FIFO depths 1/2/4 yield request stalls 100/64/10 with span 189/189/189 cycles. Changing waiting location does not necessarily change the single-engine bottleneck. The architecture study and its controls are described in [case-study.md](case-study.md).
 
 ```bash
 python3 tools/study/run.py --trace /path/tiny-vllm-trace --rtl /path/tiny-vllm-rtl --output results/study
@@ -88,7 +86,3 @@ VLLM_TARGET_DEVICE=empty "$HOME/.cache/tiny-vllm/reference-env/bin/python" -m pi
 ```
 
 Reuse an existing environment/checkout if available. The recorded result is **7 matching conditions / 104 matching rows, and 2 chunk-policy differences** (`chunk-one`, `longer-mixed`). Upstream [disables the threshold for one eligible request](https://github.com/vllm-project/vllm/blob/b558f160a2c0abcb5902acc3c91a14c38a4af173/vllm/v1/core/sched/scheduler.py#L623-L640); tiny-vLLM always applies its chunk cap. The comparison suite intentionally returns **exit 1** for those differences. Pressure policy, physical addresses, and GPU traffic equality are outside this comparison.
-
-## Human onboarding
-
-The build/run/check tutorial is exercised automatically. No student participant study has yet been completed. Use the [prepared usability protocol](usability.md) before making claims about unassisted integration time or adoption.

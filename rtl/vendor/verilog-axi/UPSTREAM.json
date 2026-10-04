@@ -5,5 +5,5 @@
   "sha256": "2eb669f3cd1fd912a74c024df3bea5765a3599eead1a007c63f19b6b185d55c4",
   "license": "MIT; see COPYING and source header",
   "modified": false,
-  "maintenance": "Upstream deprecated in favor of fpganinja/taxi; frozen external validation target."
+  "maintenance": "Upstream deprecated in favor of fpganinja/taxi; pinned external validation target."
 }

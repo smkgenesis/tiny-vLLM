@@ -30,7 +30,7 @@ RTL timing changes submission and completion timing. Logical arrival steps and s
 
 Use Ubuntu 24.04 or WSL2 Ubuntu. Install the [build dependencies](docs/installation.md) first. The preset uses an ASCII build path under `$HOME/.cache`.
 
-**1. Get and build** (repository access is required while it is private):
+**1. Get and build:**
 
 ```bash
 git clone https://github.com/smkgenesis/tiny-vLLM.git
@@ -78,7 +78,7 @@ Two small targets support learning and regression testing:
 | Single-engine | `--rtl single` | Shared FIFO and one fixed-cost engine |
 | Split read/write | `--rtl split-rw` | Separate read/write FIFOs and engines |
 
-They are descriptor services, not final accelerators. The historical name `dual-rw` remains accepted and is retained in saved study configurations. For external-memory integration validation, the project also includes an unmodified AXI RAM target with real readback checks; see [validation](docs/validation.md).
+They are descriptor services, not complete accelerators. For external-memory integration validation, the project also includes an unmodified AXI RAM target with real readback checks; see [validation](docs/validation.md).
 
 ## Case study
 
@@ -88,7 +88,7 @@ When does serving concurrency expose read/write overlap to independent RTL engin
 - Concurrent requests can expose independence; limiting outstanding memory requests to one removes the gain.
 - More serving concurrency does not guarantee more overlap.
 
-> In the declared mixed C8 case, single/split completion spans are **4,119 / 3,756 cycles**. Total waiting capacity is matched, but split adds an engine. This is not an equal-area or GPU speedup claim.
+> In the mixed C8 case, single/split completion spans are **4,119 / 3,756 cycles**. Total waiting capacity is matched, but split adds an engine. This is not an equal-area or GPU speedup claim.
 
 [All 11 pairs, controls, waveforms, and limitations](docs/case-study.md).
 
@@ -101,12 +101,10 @@ When does serving concurrency expose read/write overlap to independent RTL engin
 | Paged KV allocation, dependencies, and release | Full vLLM behavior, prefix caching, or preemption |
 | Memory requests, backpressure, and actual completion | Real DRAM timing, area, power, or numeric KV values |
 
-The full build has **27 automated tests** covering the core, reference RTL, generic template, and external AXI integration. The default preset has 23; AXI is optional. [`tools/reproduce.py`](docs/validation.md#reproduce-everything) builds and checks the complete artifact, including the unchanged research study.
+The full build has **27 automated tests** covering the core, reference RTL, generic template, and external AXI integration. The default preset has 23; AXI is optional. [`tools/reproduce.py`](docs/validation.md#reproduce-everything) performs fresh builds, tests, integration checks, and study reproduction.
 
 ## Documentation
 
 Read in this order: [overview and glossary](docs/overview.md) → [workload model](docs/workload-model.md) → [bring your own RTL](docs/bring-your-own-rtl.md) → [backend contract](docs/backend-interface.md) → [validation](docs/validation.md) → [case study](docs/case-study.md).
-
-The onboarding goal is an unassisted first integration within 30 minutes after toolchain setup. This is a target, **not a measured user-study result**. A [student usability-test protocol](docs/usability.md) is ready for actual participants.
 
 MIT licensed; see [LICENSE](LICENSE). Vendored AXI RTL retains its own [copyright and MIT notice](rtl/vendor/verilog-axi/COPYING).
